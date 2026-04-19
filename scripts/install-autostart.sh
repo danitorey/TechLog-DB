@@ -9,27 +9,40 @@ SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/autostart.sh"
 BASHRC="$HOME/.bashrc"
 MARKER="# techlog-db autostart"
 
-# Verificar que no este ya instalado
 if grep -q "$MARKER" "$BASHRC"; then
   echo "⚠️  El autostart ya esta instalado en $BASHRC"
-  echo "   Para reinstalar, elimina las lineas con '$MARKER' en ~/.bashrc"
   exit 0
 fi
 
-# Dar permisos de ejecucion
 chmod +x "$SCRIPT_PATH"
 
-# Escribir en .bashrc con la ruta real de ESTA maquina
 cat >> "$BASHRC" << EOF
 
 $MARKER
+_cleanup_port() {
+  local PIDS
+  PIDS=\$(sudo lsof -ti :"\$1" 2>/dev/null)
+  if [ -n "\$PIDS" ]; then
+    echo "[Autostart] Liberando puerto \$1..."
+    sudo kill -9 \$PIDS 2>/dev/null
+    sleep 1
+  fi
+}
+
 if ! docker ps 2>/dev/null | grep -q "techlog_postgres"; then
+  echo "[Autostart] Levantando techlog-db..."
+  _cleanup_port 5433
+  _cleanup_port 5678
   bash "$SCRIPT_PATH"
 fi
 EOF
 
-echo "✅ Autostart instalado para el usuario: $USER"
-echo "   Ruta del proyecto: $(dirname "$SCRIPT_PATH")"
-echo ""
-echo "   Cada vez que abras WSL los contenedores se levantaran solos."
-echo "   Para desinstalar: elimina las lineas '$MARKER' en ~/.bashrc"
+# Agregar regla sudo sin password para lsof y kill
+SUDOERS_LINE="$USER ALL=(ALL) NOPASSWD: /usr/bin/lsof, /bin/kill"
+if ! sudo grep -q "$SUDOERS_LINE" /etc/sudoers 2>/dev/null; then
+  echo "$SUDOERS_LINE" | sudo tee -a /etc/sudoers > /dev/null
+  echo "✅ Regla sudo configurada — no pedira password al arrancar"
+fi
+
+echo "✅ Autostart instalado para: $USER"
+echo "   Abre una nueva terminal para activarlo"
