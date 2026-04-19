@@ -11,7 +11,7 @@ profesionales y subir entregables mensuales a **OneDrive**.
 
 ```mermaid
 flowchart TD
-    A(["👤 Daniel\nRegistra actividad\nen tabla: manuales"]) --> B
+    A(["👤 Usuario\nRegistra actividad\nen tabla: manuales"]) --> B
 
     B[("🐘 PostgreSQL 17\nBase de datos: techlog\npuerto: 5433")]
 
@@ -73,21 +73,22 @@ flowchart TD
 
 ## Estructura del proyecto
 
+```
 techlog-db/
-├── docker-compose.yml ← Levanta PostgreSQL 17 + n8n
-├── .env ← Credenciales reales (NO va al repo)
-├── .env.example ← Plantilla sin credenciales (SÍ va al repo)
+├── docker-compose.yml   ← Levanta PostgreSQL 17 + n8n
+├── .env                 ← Credenciales reales (NO va al repo)
+├── .env.example         ← Plantilla sin credenciales (SÍ va al repo)
 ├── .gitignore
 ├── README.md
 ├── scripts/
-│ └── autostart.sh ← Levanta contenedores al abrir WSL
+│   └── autostart.sh     ← Levanta contenedores al abrir WSL
 └── postgres/
-└── init/ ← Se ejecutan solos al crear el contenedor
-├── 01_schema.sql ← Tablas: areas, manuales, entregables
-├── 02_indexes.sql ← Índices de búsqueda
-├── 03_views.sql ← Vistas y triggers para n8n
-└── 04_seed.sql ← Datos de ejemplo
-
+    └── init/            ← Se ejecutan solos al crear el contenedor
+        ├── 01_schema.sql    ← Tablas: areas, manuales, entregables
+        ├── 02_indexes.sql   ← Índices de búsqueda
+        ├── 03_views.sql     ← Vistas y triggers para n8n
+        └── 04_seed.sql      ← Datos de ejemplo
+```
 
 ---
 
@@ -107,6 +108,22 @@ cp .env.example .env
 nano .env
 ```
 
+Llena todas las variables del archivo. Presta especial atención a:
+
+> **⚠️ Importante — `N8N_ENCRYPTION_KEY`**
+>
+> Esta variable es **obligatoria** para que n8n arranque correctamente.
+> Genera una key única con:
+> ```bash
+> openssl rand -hex 16
+> ```
+> Copia el resultado en tu `.env`.
+>
+> - **No reutilices la key de otro compañero** — cada instalación debe tener la propia.
+> - **No la cambies después** de haber creado credenciales en n8n. Si la cambias,
+>   n8n no arrancará y verás el error `Mismatching encryption keys`.
+> - Si necesitas hacer un reset completo, usa `docker compose down -v` (ver advertencia abajo).
+
 ### 3. Levantar los servicios
 
 ```bash
@@ -114,7 +131,11 @@ docker compose up -d
 docker compose ps
 ```
 
-### 4. Instalar arranque automático en WSL (una sola vez)
+### 4. Acceder a n8n y crear tu usuario
+
+Entra a http://localhost:5678 y crea tu usuario administrador la primera vez.
+
+### 5. Instalar arranque automático en WSL (una sola vez)
 
 ```bash
 chmod +x scripts/autostart.sh
@@ -137,10 +158,14 @@ Desde ese momento, al abrir WSL los contenedores se levantan solos.
 
 ## Accesos
 
-| Servicio   | URL                   | Usuario      | Password          |
-|------------|-----------------------|--------------|-------------------|
-| **n8n**    | http://localhost:5678 | admin        | n8n_pass_2024     |
-| PostgreSQL | localhost:5433        | techlog_user | techlog_pass_2024 |
+Los valores de usuario y contraseña son los que tú definiste en tu `.env`.
+
+| Servicio   | URL                   | Variables en `.env`                          |
+|------------|-----------------------|----------------------------------------------|
+| **n8n**    | http://localhost:5678 | Usuario creado al entrar por primera vez     |
+| PostgreSQL | localhost:5433        | `POSTGRES_USER` / `POSTGRES_PASSWORD`        |
+
+> 📌 Nunca compartas tu archivo `.env`. Nunca subas credenciales reales al repositorio.
 
 ---
 
@@ -149,13 +174,13 @@ Desde ese momento, al abrir WSL los contenedores se levantan solos.
 1. **New Database Connection** → PostgreSQL
 2. Datos de conexión:
 
-| Campo    | Valor             |
-|----------|-------------------|
-| Host     | `localhost`       |
-| Port     | `5433`            |
-| Database | `techlog`         |
-| Username | `techlog_user`    |
-| Password | `techlog_pass_2024` |
+| Campo    | Valor                                    |
+|----------|------------------------------------------|
+| Host     | `localhost`                              |
+| Port     | `5433`                                   |
+| Database | `techlog` (o el valor de `POSTGRES_DB`)  |
+| Username | valor de `POSTGRES_USER` en tu `.env`    |
+| Password | valor de `POSTGRES_PASSWORD` en tu `.env`|
 
 3. **Test Connection** → **Finish**
 
@@ -207,12 +232,13 @@ docker compose logs -f
 # Detener (conserva datos)
 docker compose down
 
-# Borrar todo incluyendo datos
-docker compose down -v
-
 # Reiniciar un servicio
 docker compose restart postgres
 docker compose restart n8n
+
+# ⚠️ DESTRUCTIVO — Borra contenedores + volúmenes (base de datos y config de n8n)
+# Después necesitarás: levantar de nuevo, crear usuario en n8n y re-crear la BD
+docker compose down -v
 ```
 
 ---
@@ -220,8 +246,6 @@ docker compose restart n8n
 ## Ejecución para otro usuario o PC
 
 Este proyecto es 100% genérico. Para que otro usuario lo use:
-
-### Se ejecuta:
 
 ```bash
 # 1. Clonar el repo
@@ -231,11 +255,14 @@ cd techlog-db
 # 2. Crear su propio .env con sus credenciales
 cp .env.example .env
 nano .env
+# → Generar N8N_ENCRYPTION_KEY con: openssl rand -hex 16
 
 # 3. Levantar todo
 docker compose up -d
 
-# 4. Instalar autostart (opcional, una sola vez)
+# 4. Entrar a http://localhost:5678 y crear usuario de n8n
+
+# 5. Instalar autostart (opcional, una sola vez)
 bash scripts/install-autostart.sh
 ```
 
@@ -244,6 +271,8 @@ Cada quien tiene:
 - Sus propios workflows en n8n
 - Sus propias credenciales en `.env`
 - El `.env` nunca se sube al repo (está en `.gitignore`)
+
+---
 
 ## Roadmap
 
