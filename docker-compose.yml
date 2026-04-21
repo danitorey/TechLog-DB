@@ -43,8 +43,14 @@ services:
       WEBHOOK_URL: ${WEBHOOK_URL}
       GENERIC_TIMEZONE: America/Mexico_City
       N8N_SECURE_COOKIE: "false"
+      N8N_RESTRICT_FILE_ACCESS_TO: /data/inbox;/data/procesado;/data/plantillas;/home/node/.n8n-files
+      NODE_FUNCTION_ALLOW_BUILTIN: fs,path
+      NODE_FUNCTION_ALLOW_EXTERNAL: "*"
     volumes:
       - n8n_data:/home/node/.n8n
+      - /mnt/d/CTIE_UnADM/documentos/inbox:/data/inbox
+      - /mnt/d/CTIE_UnADM/documentos/procesado:/data/procesado
+      - /mnt/d/CTIE_UnADM/documentos/plantillas:/data/plantillas
     ports:
       - "${N8N_PORT}:5678"
     networks:

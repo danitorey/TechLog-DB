@@ -11,24 +11,24 @@ profesionales y subir entregables mensuales a **OneDrive**.
 
 ```mermaid
 flowchart TD
-    A(["👤 Usuario\nRegistra actividad\nen tabla: manuales"]) --> B
+    A(["👤 Usuario\nEscribe actividad\nen archivo .txt"]) --> B
 
-    B[("🐘 PostgreSQL 17\nBase de datos: techlog\npuerto: 5433")]
+    B["📂 /data/inbox\nArchivos .txt en espera"]
 
-    B --> C["📋 vw_manuales_detalle\npor actividad"]
-    B --> D["📅 vw_resumen_mensual\nagrupado por mes"]
+    B --> C["⚙️ n8n\nSchedule Trigger cada 5 min\npuerto: 5678"]
 
-    C --> E
-    D --> E
+    C --> D["🔧 Code in JavaScript\nParsea campos del .txt"]
 
-    E["⚙️ n8n\nMotor de automatización\npuerto: 5678"]
+    D --> E[("🐘 PostgreSQL 17\nBase de datos: techlog\npuerto: 5433")]
+    D --> F["📄 Genera Word + PDF\ndesde plantilla .docx"]
 
-    E --> F["📄 Workflow 1\nManual nuevo detectado\n→ Genera PDF / Word"]
-    E --> G["📦 Workflow 2  fin de mes\nLee resumen mensual\n→ Genera entregable"]
+    E --> G["📦 Workflow fin de mes\nLee resumen mensual\n→ Genera entregable"]
 
     F --> H[("☁️ OneDrive\n/Manuales/Infraestructura\n/Manuales/BasesDatos\n/Manuales/Redes...")]
     G --> H
     G --> I["🔄 Actualiza tabla\nentregables_mensuales"]
+
+    D --> J["📦 /data/procesado\nArchivo .txt movido\ndespués de procesar"]
 ```
 
 > El diagrama se renderiza automáticamente en GitHub y en cualquier
@@ -72,23 +72,47 @@ flowchart TD
 ---
 
 ## Estructura del proyecto
-
-```
 techlog-db/
-├── docker-compose.yml   ← Levanta PostgreSQL 17 + n8n
-├── .env                 ← Credenciales reales (NO va al repo)
-├── .env.example         ← Plantilla sin credenciales (SÍ va al repo)
+├── docker-compose.yml ← Levanta PostgreSQL 17 + n8n
+├── .env ← Credenciales reales (NO va al repo)
+├── .env.example ← Plantilla sin credenciales (SÍ va al repo)
 ├── .gitignore
 ├── README.md
 ├── scripts/
-│   └── autostart.sh     ← Levanta contenedores al abrir WSL
-└── postgres/
-    └── init/            ← Se ejecutan solos al crear el contenedor
-        ├── 01_schema.sql    ← Tablas: areas, manuales, entregables
-        ├── 02_indexes.sql   ← Índices de búsqueda
-        ├── 03_views.sql     ← Vistas y triggers para n8n
-        └── 04_seed.sql      ← Datos de ejemplo
-```
+│ └── autostart.sh ← Levanta contenedores al abrir WSL
+├── postgres/
+│ └── init/ ← Se ejecutan solos al crear el contenedor
+│ ├── 01_schema.sql ← Tablas: areas, manuales, entregables
+│ ├── 02_indexes.sql ← Índices de búsqueda
+│ ├── 03_views.sql ← Vistas y triggers para n8n
+│ ├── 04_seed.sql ← Datos de ejemplo
+│ └── 05_actividades.sql ← Tabla actividades (workflow n8n)
+└── documentos/
+├── inbox/ ← .txt nuevos pendientes de procesar
+├── procesado/ ← .txt ya procesados por n8n
+└── plantillas/
+└── plantilla_actividad.docx ← Plantilla Word para generar manuales
+
+---
+
+## Formato del archivo .txt para registrar actividades
+
+Cada archivo `.txt` que dejes en `/documentos/inbox/` debe seguir esta estructura exacta:
+Carpeta: 7. Actividades adicionales
+Año: 2026
+Mes: 04
+Titulo: Título de la actividad
+Objetivo: Descripción del objetivo
+Pasos:
+
+1. Primer paso
+2. Segundo paso
+3. Tercer paso
+
+Conclusion: Resultado final de la actividad
+
+> n8n lo detecta automáticamente, extrae los campos, inserta en PostgreSQL,
+> genera el Word/PDF y mueve el archivo a `/documentos/procesado/`.
 
 ---
 
@@ -216,6 +240,9 @@ SELECT * FROM vw_manuales_detalle;
 SELECT * FROM vw_resumen_mensual
 WHERE anio = EXTRACT(YEAR FROM NOW())
   AND mes  = EXTRACT(MONTH FROM NOW());
+
+-- Ver actividades procesadas por n8n
+SELECT * FROM actividades ORDER BY created_at DESC;
 ```
 
 ---
@@ -279,7 +306,10 @@ Cada quien tiene:
 - [x] Fase 1 — PostgreSQL 17 con tablas, vistas y datos de ejemplo
 - [x] Fase 1 — n8n integrado y conectado a PostgreSQL
 - [x] Fase 1 — Arranque automático en WSL
-- [ ] Fase 2 — Workflow n8n: leer manuales y generar PDF/Word profesional
+- [x] Fase 2 — Workflow n8n: leer .txt desde inbox y parsear campos
+- [x] Fase 2 — Workflow n8n: insertar actividad en PostgreSQL
+- [x] Fase 2 — Workflow n8n: mover .txt a procesado al terminar
+- [ ] Fase 2 — Workflow n8n: generar Word y PDF desde plantilla .docx
 - [ ] Fase 3 — Workflow n8n: subir PDF a OneDrive en ruta del área
 - [ ] Fase 4 — Entregables mensuales automáticos por área
 - [ ] Fase 5 — Formulario web para registrar sin escribir SQL
